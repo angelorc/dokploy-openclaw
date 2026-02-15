@@ -52,8 +52,6 @@ mkdir -p "$STATE_DIR" "$STATE_DIR/credentials" "$WORKSPACE_DIR"
 chmod 700 "$STATE_DIR"
 export OPENCLAW_STATE_DIR="$STATE_DIR"
 export OPENCLAW_WORKSPACE_DIR="$WORKSPACE_DIR"
-export HOME="${STATE_DIR%/.openclaw}"
-
 # ── 4b. Seed default openclaw.json if missing ───────────────────────────────
 CONFIG_FILE="$STATE_DIR/openclaw.json"
 if [ ! -f "$CONFIG_FILE" ] && [ -f /app/openclaw.json.example ]; then

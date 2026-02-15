@@ -54,6 +54,11 @@ COPY openclaw.json.example /app/openclaw.json.example
 COPY scripts/ /app/scripts/
 RUN chmod +x /app/scripts/*.sh
 
+# Ensure consistent paths for both entrypoint and docker exec sessions
+ENV HOME=/data
+ENV OPENCLAW_STATE_DIR=/data/.openclaw
+ENV OPENCLAW_WORKSPACE_DIR=/data/workspace
+
 EXPOSE 18789
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
