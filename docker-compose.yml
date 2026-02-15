@@ -9,10 +9,10 @@ services:
       - AUTH_PASSWORD=${AUTH_PASSWORD:-}
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-}
       - BROWSER_CDP_URL=http://browser:9223
-      - BROWSER_DEFAULT_PROFILE=openclaw
-      - BROWSER_EVALUATE_ENABLED=true
     volumes:
       - openclaw-data:/data
+      # Mount a custom openclaw.json for advanced configuration:
+      # - ./openclaw.json:/data/.openclaw/openclaw.json
     depends_on:
       browser:
         condition: service_started

@@ -50,7 +50,7 @@ RUN ln -s /opt/openclaw/app/docs /opt/openclaw/docs \
   && ln -s /opt/openclaw/app/assets /opt/openclaw/assets \
   && ln -s /opt/openclaw/app/package.json /opt/openclaw/package.json
 
-# ── Stage 3: Final image with Caddy + config engine ─────────
+# ── Stage 3: Final image with Caddy ──────────────────────────
 FROM runtime
 
 # Install Caddy from official APT repo
@@ -63,10 +63,11 @@ RUN apt-get update \
     | tee /etc/apt/sources.list.d/caddy-stable.list \
   && apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    caddy python3-minimal \
+    caddy \
   && rm -rf /var/lib/apt/lists/*
 
 COPY Caddyfile /app/Caddyfile
+COPY openclaw.json.example /app/openclaw.json.example
 COPY scripts/ /app/scripts/
 RUN chmod +x /app/scripts/*.sh
 COPY static/ /app/static/

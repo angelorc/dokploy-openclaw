@@ -15,7 +15,7 @@ if [ -z "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
         echo "[entrypoint] gateway token loaded from $TOKEN_FILE"
     else
         mkdir -p "$STATE_DIR"
-        export OPENCLAW_GATEWAY_TOKEN="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+        export OPENCLAW_GATEWAY_TOKEN="$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")"
         echo "$OPENCLAW_GATEWAY_TOKEN" > "$TOKEN_FILE"
         chmod 600 "$TOKEN_FILE"
         echo "[entrypoint] gateway token auto-generated (persisted to $TOKEN_FILE)"
@@ -34,9 +34,9 @@ done
 [ -n "${AWS_ACCESS_KEY_ID:-}" ] && [ -n "${AWS_SECRET_ACCESS_KEY:-}" ] && HAS_PROVIDER=1
 [ -n "${OLLAMA_BASE_URL:-}" ] && HAS_PROVIDER=1
 if [ "$HAS_PROVIDER" -eq 0 ]; then
-    echo "[entrypoint] ERROR: At least one AI provider API key is required."
+    echo "[entrypoint] WARNING: No AI provider API key detected."
     echo "[entrypoint] Set one of: ANTHROPIC_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, etc."
-    exit 1
+    echo "[entrypoint] The gateway will start with --allow-unconfigured. Configure via Control UI or mount openclaw.json."
 fi
 
 # ── 3. Install extra apt packages (optional) ─────────────────────────────────
@@ -52,10 +52,47 @@ export OPENCLAW_STATE_DIR="$STATE_DIR"
 export OPENCLAW_WORKSPACE_DIR="$WORKSPACE_DIR"
 export HOME="${STATE_DIR%/.openclaw}"
 
-# ── 5. Generate config (openclaw.json + Caddy snippets) ─────────────────────
-echo "[entrypoint] running configure..."
-python3 /app/scripts/configure.py
-chmod 600 "$STATE_DIR/openclaw.json"
+# ── 5. Generate Caddy snippets ───────────────────────────────────────────────
+CADDY_DIR="/app/caddy.d"
+mkdir -p "$CADDY_DIR"
+
+# Auth snippet
+if [ -n "${AUTH_PASSWORD:-}" ]; then
+    AUTH_USER="${AUTH_USERNAME:-admin}"
+    BCRYPT_HASH="$(caddy hash-password --plaintext "$AUTH_PASSWORD")"
+    cat > "$CADDY_DIR/auth.caddyfile" <<EOF
+(auth_block) {
+    basic_auth {
+        $AUTH_USER $BCRYPT_HASH
+    }
+}
+EOF
+    echo "[entrypoint] Caddy auth snippet generated (basicauth enabled)"
+else
+    cat > "$CADDY_DIR/auth.caddyfile" <<'EOF'
+(auth_block) {
+}
+EOF
+    echo "[entrypoint] Caddy auth snippet: no AUTH_PASSWORD set (no auth)"
+fi
+
+# Hooks snippet
+HOOKS_ENABLED="${HOOKS_ENABLED:-}"
+HOOKS_PATH="${HOOKS_PATH:-/hooks}"
+if [ "${HOOKS_ENABLED,,}" = "true" ] || [ "$HOOKS_ENABLED" = "1" ]; then
+    GW_PORT="${OPENCLAW_GATEWAY_PORT:-18789}"
+    GW_TOKEN="${OPENCLAW_GATEWAY_TOKEN:-}"
+    cat > "$CADDY_DIR/hooks.caddyfile" <<EOF
+handle ${HOOKS_PATH}* {
+    reverse_proxy localhost:${GW_PORT} {
+        header_up Authorization "Bearer ${GW_TOKEN}"
+    }
+}
+EOF
+    echo "[entrypoint] Caddy hooks snippet generated (path: $HOOKS_PATH)"
+else
+    : > "$CADDY_DIR/hooks.caddyfile"
+fi
 
 # ── 6. Auto-fix doctor suggestions ──────────────────────────────────────────
 echo "[entrypoint] running openclaw doctor --fix..."

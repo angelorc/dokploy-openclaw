@@ -1,29 +1,29 @@
 # dokploy-openclaw
 
-Docker image for deploying [OpenClaw](https://github.com/nicepkg/openclaw) on [Dokploy](https://dokploy.com). Features a schema-driven Python config engine, Caddy reverse proxy, and a single multi-stage Dockerfile.
+Docker image for deploying [OpenClaw](https://github.com/nicepkg/openclaw) on [Dokploy](https://dokploy.com). Features Caddy reverse proxy with basic auth and a single multi-stage Dockerfile.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  Docker container (dokploy-openclaw)                │
-│                                                     │
-│  entrypoint.sh                                      │
-│    1. validate env vars                             │
-│    2. auto-generate gateway token (if not set)      │
-│    3. configure.py (env -> openclaw.json + caddy.d/)│
-│    4. openclaw doctor --fix                         │
-│    5. caddy start (background)                      │
-│    6. exec openclaw gateway                         │
-│                                                     │
-│  ┌──────────┐  :8080   ┌────────────────┐          │
-│  │  Caddy    │ -------> │  openclaw      │          │
-│  │  (basic   │  proxy   │  gateway       │          │
-│  │   auth)   │  :18789  │  :18789        │          │
-│  └──────────┘          └────────────────┘          │
-│                                                     │
-│  /browser/ -> browser sidecar:3000 (VNC web UI)    │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────┐
+│  Docker container (dokploy-openclaw)            │
+│                                                 │
+│  entrypoint.sh                                  │
+│    1. auto-generate gateway token (if not set)  │
+│    2. validate env vars (warning if no provider)│
+│    3. generate Caddy auth + hooks snippets      │
+│    4. openclaw doctor --fix                     │
+│    5. caddy start (background)                  │
+│    6. exec openclaw gateway                     │
+│                                                 │
+│  ┌──────────┐  :8080   ┌────────────────┐      │
+│  │  Caddy    │ -------> │  openclaw      │      │
+│  │  (basic   │  proxy   │  gateway       │      │
+│  │   auth)   │  :18789  │  :18789        │      │
+│  └──────────┘          └────────────────┘      │
+│                                                 │
+│  /browser/ -> browser sidecar:3000 (VNC web UI) │
+└─────────────────────────────────────────────────┘
 ```
 
 ## Quick Start
@@ -42,42 +42,41 @@ docker compose up -d
 
 The UI will be available at `http://localhost:8080`. Login with the username `admin` (default) and the password you set in `AUTH_PASSWORD`.
 
-## Environment Variables
+## Configuration
 
-All environment variables are documented in [.env.example](.env.example). Key sections:
+There are three ways to configure OpenClaw:
 
-| Section | Key Variables | Notes |
-|---------|--------------|-------|
-| **AI Providers** | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, ... | At least one required |
-| **Auth** | `AUTH_USERNAME`, `AUTH_PASSWORD` | Caddy basic auth on all routes except `/healthz` |
-| **Gateway** | `OPENCLAW_GATEWAY_TOKEN`, `OPENCLAW_GATEWAY_PORT` | Token auto-generated if not set |
-| **Model** | `OPENCLAW_PRIMARY_MODEL` | Auto-selected from first configured provider |
-| **Channels** | `TELEGRAM_BOT_TOKEN`, `DISCORD_BOT_TOKEN`, `SLACK_BOT_TOKEN`, `WHATSAPP_ENABLED` | Optional messaging integrations |
-| **Browser** | `BROWSER_CDP_URL`, `BROWSER_EVALUATE_ENABLED` | CDP sidecar connection |
-| **Hooks** | `HOOKS_ENABLED`, `HOOKS_TOKEN` | Webhook automation endpoints |
-| **Providers** | `AI_GATEWAY_BASE_URL`, `ANTHROPIC_BASE_URL`, ... | Custom base URL overrides |
+### 1. Environment variables (simplest)
 
-## OPENCLAW_JSON__* Convention
-
-Any environment variable matching `OPENCLAW_JSON__path__to__key=value` is applied directly to `openclaw.json` at the JSON path `path.to.key`. Double underscores (`__`) become dot-separated nesting levels.
-
-This lets you configure **any** OpenClaw setting via environment variables, even settings not explicitly listed in `.env.example`. Types are auto-detected (numbers, booleans, JSON objects/arrays).
-
-**Examples:**
+Set AI provider API keys as env vars in `.env` or Dokploy's environment tab. OpenClaw auto-detects them:
 
 ```bash
-# Set max concurrent agents
-OPENCLAW_JSON__agents__defaults__maxConcurrent=5
-# Result: {"agents": {"defaults": {"maxConcurrent": 5}}}
-
-# Set compaction mode
-OPENCLAW_JSON__agents__defaults__compaction__mode=safeguard
-# Result: {"agents": {"defaults": {"compaction": {"mode": "safeguard"}}}}
-
-# Set primary model via JSON path
-OPENCLAW_JSON__models__primaryModel=opencode/kimi-k2.5
-# Result: {"models": {"primaryModel": "opencode/kimi-k2.5"}}
+ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
 ```
+
+See [.env.example](.env.example) for all supported env vars.
+
+### 2. Mount `openclaw.json` (full control)
+
+For channels, models, tools, and all other OpenClaw settings, mount a JSON5 config file:
+
+```bash
+docker run -v ./openclaw.json:/data/.openclaw/openclaw.json ...
+```
+
+Or in `docker-compose.yml`:
+
+```yaml
+volumes:
+  - ./openclaw.json:/data/.openclaw/openclaw.json
+```
+
+See [openclaw.json.example](openclaw.json.example) for a reference template. The config supports `${VAR}` substitution for secrets.
+
+### 3. Control UI (browser-based)
+
+After first boot, open `http://localhost:8080` and use the built-in Control UI to configure OpenClaw interactively. Changes are hot-reloaded.
 
 ## Browser Sidecar
 
@@ -152,18 +151,14 @@ After deployment, verify everything is working:
 
 5. **UI access:** Open `http://localhost:8080` in a browser and login with `admin` / your password.
 
-6. **Convention passthrough test:**
+6. **Config mount test:**
    ```bash
    docker run -d -p 8080:8080 \
      -e ANTHROPIC_API_KEY=sk-ant-... \
      -e AUTH_PASSWORD=changeme \
-     -e OPENCLAW_JSON__agents__defaults__maxConcurrent=10 \
+     -v ./openclaw.json:/data/.openclaw/openclaw.json \
      -v openclaw-data:/data \
      openclaw:local
-
-   # Verify:
-   docker exec <container> cat /data/.openclaw/openclaw.json | python3 -m json.tool
-   # agents.defaults.maxConcurrent should be 10
    ```
 
 7. **Full compose:**

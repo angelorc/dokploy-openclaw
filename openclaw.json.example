@@ -1,0 +1,66 @@
+// OpenClaw configuration reference for dokploy-openclaw.
+// Copy this file, customize it, and mount into the container:
+//   docker run -v ./openclaw.json:/data/.openclaw/openclaw.json ...
+//
+// Format: JSON5 (comments + trailing commas allowed).
+// All fields are optional -- OpenClaw uses safe defaults when omitted.
+// Env var substitution: use ${VAR_NAME} to reference environment variables.
+// Docs: https://openclaw.ai/gateway/configuration-reference
+{
+  // Gateway settings (port/bind/auth are set via entrypoint flags, rarely needed here)
+  gateway: {
+    controlUi: {
+      enabled: true,
+      allowInsecureAuth: true,
+    },
+  },
+
+  // Agent defaults
+  agents: {
+    defaults: {
+      workspace: "/data/workspace",
+      model: {
+        // primary: "anthropic/claude-sonnet-4-5",
+        // fallbacks: ["openai/gpt-5.2"],
+      },
+      // maxConcurrent: 3,
+      // compaction: { mode: "safeguard" },
+    },
+  },
+
+  // Browser tool (remote CDP sidecar)
+  // The docker-compose.yml browser sidecar exposes CDP on port 9223.
+  browser: {
+    cdpUrl: "http://browser:9223",
+    defaultProfile: "openclaw",
+    evaluateEnabled: true,
+  },
+
+  // Channels -- configure messaging integrations here.
+  // API keys/tokens can use ${VAR} substitution from env vars.
+  // channels: {
+  //   telegram: {
+  //     botToken: "${TELEGRAM_BOT_TOKEN}",
+  //     dmPolicy: "pairing",
+  //   },
+  //   discord: {
+  //     token: "${DISCORD_BOT_TOKEN}",
+  //     dmPolicy: "pairing",
+  //   },
+  //   slack: {
+  //     botToken: "${SLACK_BOT_TOKEN}",
+  //     appToken: "${SLACK_APP_TOKEN}",
+  //     dmPolicy: "pairing",
+  //   },
+  //   whatsapp: {
+  //     dmPolicy: "pairing",
+  //   },
+  // },
+
+  // Hooks (webhook automation)
+  // hooks: {
+  //   enabled: true,
+  //   token: "${HOOKS_TOKEN}",
+  //   path: "/hooks",
+  // },
+}

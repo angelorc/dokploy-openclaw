@@ -1,3 +1,6 @@
+# Import dynamic snippets (auth, hooks bypass) — must be before the site block
+import /app/caddy.d/*.caddyfile
+
 :{$PORT:8080}
 
 # Health check — always accessible, no auth
@@ -6,9 +9,6 @@ handle /healthz {
         header_up Authorization "Bearer {$OPENCLAW_GATEWAY_TOKEN}"
     }
 }
-
-# Import dynamic snippets (auth, hooks bypass)
-import /app/caddy.d/*.caddyfile
 
 # Browser sidecar proxy (VNC web UI)
 handle_path /browser/* {
