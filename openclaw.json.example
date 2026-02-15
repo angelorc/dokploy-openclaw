@@ -7,10 +7,14 @@
 // Env var substitution: use ${VAR_NAME} to reference environment variables.
 // Docs: https://openclaw.ai/gateway/configuration-reference
 {
-  // Gateway settings (port/bind/auth are set via entrypoint flags, rarely needed here)
+  // Gateway must be "local" for the gateway process to start properly.
   gateway: {
+    mode: "local",
     controlUi: {
       enabled: true,
+      // Required when running behind a reverse proxy (Dokploy/Traefik).
+      // Without this, the gateway rejects Control UI connections that lack
+      // device identity (which browsers can't provide through a proxy chain).
       allowInsecureAuth: true,
     },
   },

@@ -52,6 +52,13 @@ export OPENCLAW_STATE_DIR="$STATE_DIR"
 export OPENCLAW_WORKSPACE_DIR="$WORKSPACE_DIR"
 export HOME="${STATE_DIR%/.openclaw}"
 
+# ── 4b. Seed default openclaw.json if missing ───────────────────────────────
+CONFIG_FILE="$STATE_DIR/openclaw.json"
+if [ ! -f "$CONFIG_FILE" ] && [ -f /app/openclaw.json.example ]; then
+    cp /app/openclaw.json.example "$CONFIG_FILE"
+    echo "[entrypoint] seeded default config from openclaw.json.example"
+fi
+
 # ── 5. Generate Caddy snippets ───────────────────────────────────────────────
 CADDY_DIR="/app/caddy.d"
 mkdir -p "$CADDY_DIR"
@@ -98,6 +105,14 @@ fi
 echo "[entrypoint] running openclaw doctor --fix..."
 cd /opt/openclaw/app
 openclaw doctor --fix 2>&1 || true
+
+# ── 6b. Ensure critical gateway settings for reverse-proxy operation ────────
+# gateway.mode must be "local" for the gateway to start properly.
+# allowInsecureAuth is required when the Control UI connects through a
+# reverse proxy (Dokploy/Traefik) — without it the gateway rejects
+# connections that lack device identity.
+openclaw config set gateway.mode local 2>/dev/null || true
+openclaw config set gateway.controlUi.allowInsecureAuth true 2>/dev/null || true
 
 # ── 7. Start Caddy (background) ─────────────────────────────────────────────
 echo "[entrypoint] starting Caddy on port ${PORT:-8080}..."
