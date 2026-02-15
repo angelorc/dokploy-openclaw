@@ -48,7 +48,8 @@ if [ -n "${OPENCLAW_DOCKER_APT_PACKAGES:-}" ]; then
 fi
 
 # ── 4. Create directories ────────────────────────────────────────────────────
-mkdir -p "$STATE_DIR" "$WORKSPACE_DIR"
+mkdir -p "$STATE_DIR" "$STATE_DIR/credentials" "$WORKSPACE_DIR"
+chmod 700 "$STATE_DIR"
 export OPENCLAW_STATE_DIR="$STATE_DIR"
 export OPENCLAW_WORKSPACE_DIR="$WORKSPACE_DIR"
 export HOME="${STATE_DIR%/.openclaw}"
