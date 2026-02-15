@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Openclaw - Starting</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; background: #0a0a0a; color: #e5e5e5; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .card { text-align: center; max-width: 480px; padding: 2.5rem; }
+    h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem; }
+    p { color: #a3a3a3; line-height: 1.6; margin-bottom: 1.5rem; }
+    .spinner { width: 32px; height: 32px; border: 3px solid #333; border-top-color: #e5e5e5; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 1.5rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .retry { color: #737373; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="spinner"></div>
+    <h1>Openclaw is starting up</h1>
+    <p>The gateway is initializing. This usually takes a few minutes.</p>
+    <p class="retry">This page will auto-refresh.</p>
+  </div>
+  <script>setTimeout(function(){ location.reload(); }, 3000);</script>
+</body>
+</html>

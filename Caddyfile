@@ -1,0 +1,35 @@
+:{$PORT:8080}
+
+# Health check — always accessible, no auth
+handle /healthz {
+    reverse_proxy localhost:{$OPENCLAW_GATEWAY_PORT:18789} {
+        header_up Authorization "Bearer {$OPENCLAW_GATEWAY_TOKEN}"
+    }
+}
+
+# Import dynamic snippets (auth, hooks bypass)
+import /app/caddy.d/*.caddyfile
+
+# Browser sidecar proxy (VNC web UI)
+handle_path /browser/* {
+    import auth_block
+    reverse_proxy browser:3000
+}
+
+# Starting page for when gateway is booting
+handle_errors {
+    @gateway_down expression `{err.status_code} in [502, 503, 504]`
+    handle @gateway_down {
+        root * /app/static
+        rewrite * /starting.html
+        file_server
+    }
+}
+
+# Main proxy — auth + gateway token injection
+handle {
+    import auth_block
+    reverse_proxy localhost:{$OPENCLAW_GATEWAY_PORT:18789} {
+        header_up Authorization "Bearer {$OPENCLAW_GATEWAY_TOKEN}"
+    }
+}

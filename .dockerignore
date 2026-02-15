@@ -1,0 +1,9 @@
+.git
+.references
+node_modules
+.env
+__pycache__
+.claude
+.docs-to-agent
+PLAN.md
+CLAUDE.md
