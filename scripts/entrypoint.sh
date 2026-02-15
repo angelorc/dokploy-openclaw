@@ -45,31 +45,24 @@ if [ "$HAS_PROVIDER" -eq 0 ]; then
     echo "[entrypoint] The gateway will start with --allow-unconfigured. Configure via Control UI or mount openclaw.json."
 fi
 
-# ── 3. Install extra apt packages (optional) ─────────────────────────────────
-if [ -n "${OPENCLAW_DOCKER_APT_PACKAGES:-}" ]; then
-    echo "[entrypoint] installing extra packages: $OPENCLAW_DOCKER_APT_PACKAGES"
-    apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        $OPENCLAW_DOCKER_APT_PACKAGES && rm -rf /var/lib/apt/lists/*
-fi
-
-# ── 4. Create directories ────────────────────────────────────────────────────
+# ── 3. Create directories ────────────────────────────────────────────────────
 mkdir -p "$STATE_DIR" "$STATE_DIR/credentials" "$WORKSPACE_DIR"
 chmod 700 "$STATE_DIR"
 export OPENCLAW_STATE_DIR="$STATE_DIR"
 export OPENCLAW_WORKSPACE_DIR="$WORKSPACE_DIR"
-# ── 4b. Seed default openclaw.json if missing ───────────────────────────────
+# ── 3b. Seed default openclaw.json if missing ────────────────────────────────
 CONFIG_FILE="$STATE_DIR/openclaw.json"
 if [ ! -f "$CONFIG_FILE" ] && [ -f /app/openclaw.json.example ]; then
     cp /app/openclaw.json.example "$CONFIG_FILE"
     echo "[entrypoint] seeded default config from openclaw.json.example"
 fi
 
-# ── 5. Auto-fix doctor suggestions ──────────────────────────────────────────
+# ── 4. Auto-fix doctor suggestions ──────────────────────────────────────────
 echo "[entrypoint] running openclaw doctor --fix..."
 cd /opt/openclaw/app
 openclaw doctor --fix 2>&1 || true
 
-# ── 5b. Ensure critical gateway settings for reverse-proxy operation ────────
+# ── 4b. Ensure critical gateway settings for reverse-proxy operation ────────
 # doctor --fix may overwrite openclaw.json and strip the gateway section.
 # openclaw config set is unreliable when the gateway isn't running yet,
 # so we merge the required settings directly into the JSON file using Node.
@@ -91,10 +84,10 @@ if [ -f "$CONFIG_FILE" ]; then
     echo "[entrypoint] ensured gateway.mode=local and controlUi.allowInsecureAuth=true in config"
 fi
 
-# ── 6. Clean stale lock files ────────────────────────────────────────────────
+# ── 5. Clean stale lock files ────────────────────────────────────────────────
 rm -f /tmp/openclaw-gateway.lock "$STATE_DIR/gateway.lock" 2>/dev/null || true
 
-# ── 7. Start OpenClaw gateway (PID 1) ───────────────────────────────────────
+# ── 6. Start OpenClaw gateway (PID 1) ───────────────────────────────────────
 GW_PORT="${OPENCLAW_GATEWAY_PORT:-${PORT:-18789}}"
 echo "[entrypoint] starting openclaw gateway on port ${GW_PORT}..."
 exec openclaw gateway \
