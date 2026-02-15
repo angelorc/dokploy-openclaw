@@ -50,33 +50,14 @@ RUN ln -s /opt/openclaw/app/docs /opt/openclaw/docs \
   && ln -s /opt/openclaw/app/assets /opt/openclaw/assets \
   && ln -s /opt/openclaw/app/package.json /opt/openclaw/package.json
 
-# ── Stage 3: Final image with Caddy ──────────────────────────
-FROM runtime
-
-# Install Caddy from official APT repo
-RUN apt-get update \
-  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    debian-keyring debian-archive-keyring apt-transport-https gpg \
-  && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
-    | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
-  && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
-    | tee /etc/apt/sources.list.d/caddy-stable.list \
-  && apt-get update \
-  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    caddy \
-  && rm -rf /var/lib/apt/lists/*
-
-COPY Caddyfile /app/Caddyfile
 COPY openclaw.json.example /app/openclaw.json.example
 COPY scripts/ /app/scripts/
 RUN chmod +x /app/scripts/*.sh
-COPY static/ /app/static/
 
-RUN mkdir -p /app/caddy.d
-
-EXPOSE 8080
+EXPOSE 18789
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD curl -f http://localhost:${PORT:-8080}/healthz || exit 1
+  CMD curl -sf -H "Authorization: Bearer $(cat /data/.openclaw/gateway.token 2>/dev/null)" \
+    http://localhost:${OPENCLAW_GATEWAY_PORT:-18789}/healthz || exit 1
 
 ENTRYPOINT ["/app/scripts/entrypoint.sh"]

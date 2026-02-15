@@ -10,7 +10,7 @@ set -euo pipefail
 IMAGE="${1:-openclaw:local}"
 echo "Smoke testing $IMAGE..."
 
-VERSION=$(docker run --rm "$IMAGE" openclaw --version 2>&1 || true)
+VERSION=$(docker run --rm --entrypoint openclaw "$IMAGE" --version 2>&1 || true)
 if [ -n "$VERSION" ]; then
     echo "OK: openclaw $VERSION"
 else

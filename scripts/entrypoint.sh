@@ -21,6 +21,7 @@ if [ -z "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
         echo "[entrypoint] gateway token auto-generated (persisted to $TOKEN_FILE)"
     fi
 fi
+echo "[entrypoint] gateway token: $OPENCLAW_GATEWAY_TOKEN"
 
 # ── 2. Validate at least one AI provider ─────────────────────────────────────
 HAS_PROVIDER=0
@@ -59,54 +60,12 @@ if [ ! -f "$CONFIG_FILE" ] && [ -f /app/openclaw.json.example ]; then
     echo "[entrypoint] seeded default config from openclaw.json.example"
 fi
 
-# ── 5. Generate Caddy snippets ───────────────────────────────────────────────
-CADDY_DIR="/app/caddy.d"
-mkdir -p "$CADDY_DIR"
-
-# Auth snippet
-if [ -n "${AUTH_PASSWORD:-}" ]; then
-    AUTH_USER="${AUTH_USERNAME:-admin}"
-    BCRYPT_HASH="$(caddy hash-password --plaintext "$AUTH_PASSWORD")"
-    cat > "$CADDY_DIR/auth.caddyfile" <<EOF
-(auth_block) {
-    basic_auth {
-        $AUTH_USER $BCRYPT_HASH
-    }
-}
-EOF
-    echo "[entrypoint] Caddy auth snippet generated (basicauth enabled)"
-else
-    cat > "$CADDY_DIR/auth.caddyfile" <<'EOF'
-(auth_block) {
-}
-EOF
-    echo "[entrypoint] Caddy auth snippet: no AUTH_PASSWORD set (no auth)"
-fi
-
-# Hooks snippet
-HOOKS_ENABLED="${HOOKS_ENABLED:-}"
-HOOKS_PATH="${HOOKS_PATH:-/hooks}"
-if [ "${HOOKS_ENABLED,,}" = "true" ] || [ "$HOOKS_ENABLED" = "1" ]; then
-    GW_PORT="${OPENCLAW_GATEWAY_PORT:-18789}"
-    GW_TOKEN="${OPENCLAW_GATEWAY_TOKEN:-}"
-    cat > "$CADDY_DIR/hooks.caddyfile" <<EOF
-handle ${HOOKS_PATH}* {
-    reverse_proxy localhost:${GW_PORT} {
-        header_up Authorization "Bearer ${GW_TOKEN}"
-    }
-}
-EOF
-    echo "[entrypoint] Caddy hooks snippet generated (path: $HOOKS_PATH)"
-else
-    : > "$CADDY_DIR/hooks.caddyfile"
-fi
-
-# ── 6. Auto-fix doctor suggestions ──────────────────────────────────────────
+# ── 5. Auto-fix doctor suggestions ──────────────────────────────────────────
 echo "[entrypoint] running openclaw doctor --fix..."
 cd /opt/openclaw/app
 openclaw doctor --fix 2>&1 || true
 
-# ── 6b. Ensure critical gateway settings for reverse-proxy operation ────────
+# ── 5b. Ensure critical gateway settings for reverse-proxy operation ────────
 # gateway.mode must be "local" for the gateway to start properly.
 # allowInsecureAuth is required when the Control UI connects through a
 # reverse proxy (Dokploy/Traefik) — without it the gateway rejects
@@ -114,18 +73,15 @@ openclaw doctor --fix 2>&1 || true
 openclaw config set gateway.mode local 2>/dev/null || true
 openclaw config set gateway.controlUi.allowInsecureAuth true 2>/dev/null || true
 
-# ── 7. Start Caddy (background) ─────────────────────────────────────────────
-echo "[entrypoint] starting Caddy on port ${PORT:-8080}..."
-caddy start --config /app/Caddyfile --adapter caddyfile
-
-# ── 8. Clean stale lock files ────────────────────────────────────────────────
+# ── 6. Clean stale lock files ────────────────────────────────────────────────
 rm -f /tmp/openclaw-gateway.lock "$STATE_DIR/gateway.lock" 2>/dev/null || true
 
-# ── 9. Start OpenClaw gateway (PID 1) ───────────────────────────────────────
-echo "[entrypoint] starting openclaw gateway on port ${OPENCLAW_GATEWAY_PORT:-18789}..."
+# ── 7. Start OpenClaw gateway (PID 1) ───────────────────────────────────────
+GW_PORT="${OPENCLAW_GATEWAY_PORT:-${PORT:-18789}}"
+echo "[entrypoint] starting openclaw gateway on port ${GW_PORT}..."
 exec openclaw gateway \
-    --port "${OPENCLAW_GATEWAY_PORT:-18789}" \
+    --port "${GW_PORT}" \
     --verbose \
     --allow-unconfigured \
-    --bind "${OPENCLAW_GATEWAY_BIND:-loopback}" \
+    --bind "${OPENCLAW_GATEWAY_BIND:-lan}" \
     --token "$OPENCLAW_GATEWAY_TOKEN"

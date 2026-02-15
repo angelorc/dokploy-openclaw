@@ -2,11 +2,9 @@ services:
   openclaw:
     build: .
     ports:
-      - "${PORT:-8080}:${PORT:-8080}"
+      - "${PORT:-18789}:${PORT:-18789}"
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - AUTH_USERNAME=${AUTH_USERNAME:-admin}
-      - AUTH_PASSWORD=${AUTH_PASSWORD:-}
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-}
       - BROWSER_CDP_URL=http://browser:9223
     volumes:
@@ -17,7 +15,7 @@ services:
       browser:
         condition: service_started
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${PORT:-8080}/healthz"]
+      test: ["CMD-SHELL", "curl -sf -H \"Authorization: Bearer $(cat /data/.openclaw/gateway.token 2>/dev/null)\" http://localhost:${PORT:-18789}/healthz"]
       interval: 30s
       timeout: 5s
       start_period: 15s

@@ -1,6 +1,6 @@
 # dokploy-openclaw
 
-Docker image for deploying [OpenClaw](https://github.com/nicepkg/openclaw) on [Dokploy](https://dokploy.com). Features Caddy reverse proxy with basic auth and a single multi-stage Dockerfile.
+Docker image for deploying [OpenClaw](https://github.com/nicepkg/openclaw) on [Dokploy](https://dokploy.com). The gateway is exposed directly — no intermediate proxy — so Traefik (or any reverse proxy) connects straight to it.
 
 ## Architecture
 
@@ -11,19 +11,19 @@ Docker image for deploying [OpenClaw](https://github.com/nicepkg/openclaw) on [D
 │  entrypoint.sh                                  │
 │    1. auto-generate gateway token (if not set)  │
 │    2. validate env vars (warning if no provider)│
-│    3. generate Caddy auth + hooks snippets      │
-│    4. openclaw doctor --fix                     │
-│    5. caddy start (background)                  │
-│    6. exec openclaw gateway                     │
+│    3. openclaw doctor --fix                     │
+│    4. exec openclaw gateway                     │
 │                                                 │
-│  ┌──────────┐  :8080   ┌────────────────┐      │
-│  │  Caddy    │ -------> │  openclaw      │      │
-│  │  (basic   │  proxy   │  gateway       │      │
-│  │   auth)   │  :18789  │  :18789        │      │
-│  └──────────┘          └────────────────┘      │
+│  ┌────────────────────────────────────────┐     │
+│  │  openclaw gateway  :18789              │     │
+│  │  (bearer token auth)                   │     │
+│  └────────────────────────────────────────┘     │
 │                                                 │
-│  /browser/ -> browser sidecar:3000 (VNC web UI) │
 └─────────────────────────────────────────────────┘
+        ▲
+        │  Traefik / Dokploy (TLS + optional basic auth)
+        │
+    internet
 ```
 
 ## Quick Start
@@ -32,15 +32,14 @@ Docker image for deploying [OpenClaw](https://github.com/nicepkg/openclaw) on [D
 # 1. Copy environment template
 cp .env.example .env
 
-# 2. Edit .env -- set at least one AI provider key and AUTH_PASSWORD
+# 2. Edit .env -- set at least one AI provider key
 #    ANTHROPIC_API_KEY=sk-ant-...
-#    AUTH_PASSWORD=changeme
 
 # 3. Start services
 docker compose up -d
 ```
 
-The UI will be available at `http://localhost:8080`. Login with the username `admin` (default) and the password you set in `AUTH_PASSWORD`.
+The Control UI will be available at `http://localhost:18789`. Authenticate with the gateway token printed in the container logs (`docker compose logs openclaw | grep "gateway token"`).
 
 ## Configuration
 
@@ -59,7 +58,7 @@ See [.env.example](.env.example) for all supported env vars.
 
 ### 2. Mount `openclaw.json` (full control)
 
-For channels, models, tools, and all other OpenClaw settings, mount a JSON5 config file:
+For channels, models, tools, hooks, and all other OpenClaw settings, mount a JSON5 config file:
 
 ```bash
 docker run -v ./openclaw.json:/data/.openclaw/openclaw.json ...
@@ -76,7 +75,61 @@ See [openclaw.json.example](openclaw.json.example) for a reference template. The
 
 ### 3. Control UI (browser-based)
 
-After first boot, open `http://localhost:8080` and use the built-in Control UI to configure OpenClaw interactively. Changes are hot-reloaded.
+After first boot, open `http://localhost:18789` and use the built-in Control UI to configure OpenClaw interactively. Changes are hot-reloaded.
+
+## Deploying with Traefik / Dokploy
+
+Since the gateway is exposed directly, configure auth and routing in Traefik:
+
+### Basic auth middleware
+
+Add Traefik labels to the `openclaw` service in your compose file:
+
+```yaml
+labels:
+  - "traefik.http.middlewares.openclaw-auth.basicauth.users=admin:$$apr1$$..."
+  - "traefik.http.routers.openclaw.middlewares=openclaw-auth"
+```
+
+Generate the password hash with: `htpasswd -nB admin`
+
+### Browser sidecar routing
+
+To expose the VNC web UI through Traefik, add a separate route:
+
+```yaml
+labels:
+  - "traefik.http.routers.openclaw-browser.rule=Host(`your-domain.com`) && PathPrefix(`/browser/`)"
+  - "traefik.http.routers.openclaw-browser.service=openclaw-browser"
+  - "traefik.http.services.openclaw-browser.loadbalancer.server.port=3000"
+  - "traefik.http.routers.openclaw-browser.middlewares=openclaw-auth"
+```
+
+### Token injection (optional)
+
+If you want Traefik to inject the gateway token so users don't need it:
+
+```yaml
+labels:
+  - "traefik.http.middlewares.openclaw-token.headers.customrequestheaders.Authorization=Bearer YOUR_TOKEN"
+  - "traefik.http.routers.openclaw.middlewares=openclaw-auth,openclaw-token"
+```
+
+## Hooks
+
+Webhook automation is configured in `openclaw.json`, not via environment variables:
+
+```json5
+{
+  hooks: {
+    enabled: true,
+    token: "${HOOKS_TOKEN}",
+    path: "/hooks",
+  },
+}
+```
+
+See [openclaw.json.example](openclaw.json.example) and the [hooks documentation](https://openclaw.ai/automation/hooks).
 
 ## Browser Sidecar
 
@@ -87,9 +140,9 @@ The `browser` service in `docker-compose.yml` runs a headless Chromium instance 
 1. Chromium listens on port 9222 (CDP) and port 3000 (VNC web UI)
 2. An nginx proxy on port 9223 rewrites the `Host` header to `localhost` so Chrome accepts remote CDP connections
 3. The openclaw container connects to `browser:9223` for browser automation
-4. The VNC web UI is accessible at `/browser/` through Caddy (auth-protected)
+4. The VNC web UI (port 3000) needs a separate Traefik route if you want external access (see above)
 
-No ports are exposed from the browser container directly -- all access goes through Caddy on port 8080.
+No ports are exposed from the browser container directly — access goes through Traefik.
 
 ## Building from Source
 
@@ -130,42 +183,31 @@ After deployment, verify everything is working:
 
 2. **Minimal run (auto-generates gateway token):**
    ```bash
-   docker run -d -p 8080:8080 \
+   docker run -d -p 18789:18789 \
      -e ANTHROPIC_API_KEY=sk-ant-... \
-     -e AUTH_PASSWORD=changeme \
      -v openclaw-data:/data \
      openclaw:local
    ```
 
-3. **Health check:**
+3. **Get gateway token from logs:**
    ```bash
-   curl http://localhost:8080/healthz
+   docker logs <container-id> 2>&1 | grep "gateway token"
+   ```
+
+4. **Health check:**
+   ```bash
+   curl http://localhost:18789/healthz
+   # Expected: 401 (no token)
+
+   curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:18789/healthz
    # Expected: 200 OK
    ```
 
-4. **Auth required:**
-   ```bash
-   curl http://localhost:8080/
-   # Expected: 401 Unauthorized
-   ```
+5. **UI access:** Open `http://localhost:18789` in a browser and enter the gateway token.
 
-5. **UI access:** Open `http://localhost:8080` in a browser and login with `admin` / your password.
-
-6. **Config mount test:**
-   ```bash
-   docker run -d -p 8080:8080 \
-     -e ANTHROPIC_API_KEY=sk-ant-... \
-     -e AUTH_PASSWORD=changeme \
-     -v ./openclaw.json:/data/.openclaw/openclaw.json \
-     -v openclaw-data:/data \
-     openclaw:local
-   ```
-
-7. **Full compose:**
+6. **Full compose:**
    ```bash
    docker compose up -d
    # Both openclaw and browser containers should be running
    docker compose ps
    ```
-
-8. **Browser proxy:** Open `http://localhost:8080/browser/` for the VNC web UI.

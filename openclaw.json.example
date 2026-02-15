@@ -10,6 +10,7 @@
   // Gateway must be "local" for the gateway process to start properly.
   gateway: {
     mode: "local",
+    bind: "lan",
     controlUi: {
       enabled: true,
       // Required when running behind a reverse proxy (Dokploy/Traefik).
@@ -62,6 +63,8 @@
   // },
 
   // Hooks (webhook automation)
+  // Configure webhook endpoints for external triggers.
+  // Docs: https://openclaw.ai/automation/hooks
   // hooks: {
   //   enabled: true,
   //   token: "${HOOKS_TOKEN}",
