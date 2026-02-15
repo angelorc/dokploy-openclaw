@@ -66,12 +66,26 @@ cd /opt/openclaw/app
 openclaw doctor --fix 2>&1 || true
 
 # ── 5b. Ensure critical gateway settings for reverse-proxy operation ────────
-# gateway.mode must be "local" for the gateway to start properly.
-# allowInsecureAuth is required when the Control UI connects through a
-# reverse proxy (Dokploy/Traefik) — without it the gateway rejects
-# connections that lack device identity.
-openclaw config set gateway.mode local 2>/dev/null || true
-openclaw config set gateway.controlUi.allowInsecureAuth true 2>/dev/null || true
+# doctor --fix may overwrite openclaw.json and strip the gateway section.
+# openclaw config set is unreliable when the gateway isn't running yet,
+# so we merge the required settings directly into the JSON file using Node.
+# - gateway.mode "local" is required for the gateway to start properly.
+# - allowInsecureAuth is required when the Control UI connects through a
+#   reverse proxy (Dokploy/Traefik) — without it the gateway rejects
+#   connections that lack device identity.
+if [ -f "$CONFIG_FILE" ]; then
+    node -e "
+      const fs = require('fs');
+      const cfg = JSON.parse(fs.readFileSync('$CONFIG_FILE', 'utf8'));
+      cfg.gateway = cfg.gateway || {};
+      cfg.gateway.mode = 'local';
+      cfg.gateway.controlUi = cfg.gateway.controlUi || {};
+      cfg.gateway.controlUi.enabled = true;
+      cfg.gateway.controlUi.allowInsecureAuth = true;
+      fs.writeFileSync('$CONFIG_FILE', JSON.stringify(cfg, null, 2) + '\n');
+    "
+    echo "[entrypoint] ensured gateway.mode=local and controlUi.allowInsecureAuth=true in config"
+fi
 
 # ── 6. Clean stale lock files ────────────────────────────────────────────────
 rm -f /tmp/openclaw-gateway.lock "$STATE_DIR/gateway.lock" 2>/dev/null || true
