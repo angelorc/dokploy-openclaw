@@ -15,7 +15,7 @@ WORKDIR /openclaw
 
 ARG OPENCLAW_GIT_REF=main
 RUN git clone --depth 1 --branch "${OPENCLAW_GIT_REF}" \
-    https://github.com/nicepkg/openclaw.git .
+    https://github.com/openclaw/openclaw.git .
 
 # Patch: relax workspace protocol version requirements in extensions
 RUN set -eux; \
