@@ -61,19 +61,16 @@ if [ "$_config_valid" -eq 0 ] && [ -f /app/openclaw.json.example ]; then
     echo "[entrypoint] seeded default config from openclaw.json.example (was missing or invalid JSON)"
 fi
 
-# ── 4. Auto-fix doctor suggestions ──────────────────────────────────────────
-echo "[entrypoint] running openclaw doctor --fix..."
-cd /opt/openclaw/app
-openclaw doctor --fix 2>&1 || true
-
-# ── 4b. Ensure critical gateway settings for reverse-proxy operation ────────
-# doctor --fix may overwrite openclaw.json and strip the gateway section.
-# openclaw config set is unreliable when the gateway isn't running yet,
-# so we merge the required settings directly into the JSON file using Node.
+# ── 4. Ensure critical gateway settings for reverse-proxy operation ──────────
+# We patch openclaw.json directly instead of running `openclaw doctor --fix`.
+# Doctor's security checks assume a direct client connection and flag --bind lan
+# as a security error, which is a false positive behind Traefik/Dokploy where
+# TLS is terminated at the proxy and the Docker network hop is internal.
 # - gateway.mode "local" is required for the gateway to start properly.
 # - allowInsecureAuth is required when the Control UI connects through a
 #   reverse proxy (Dokploy/Traefik) — without it the gateway rejects
 #   connections that lack device identity.
+cd /opt/openclaw/app
 if [ -f "$CONFIG_FILE" ]; then
     node -e "
       const fs = require('fs');
