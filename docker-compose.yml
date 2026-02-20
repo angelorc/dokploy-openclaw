@@ -14,12 +14,12 @@ services:
     depends_on:
       browser:
         condition: service_started
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf -H \"Authorization: Bearer $(cat /data/.openclaw/gateway.token 2>/dev/null)\" http://localhost:${PORT:-18789}/healthz"]
-      interval: 30s
-      timeout: 5s
-      start_period: 15s
-      retries: 3
+    # healthcheck:
+    #   test: ["CMD-SHELL", "curl -sf -H \"Authorization: Bearer $(cat /data/.openclaw/gateway.token 2>/dev/null)\" http://localhost:${PORT:-18789}/healthz"]
+    #   interval: 30s
+    #   timeout: 5s
+    #   start_period: 15s
+    #   retries: 3
     restart: unless-stopped
 
   browser:
