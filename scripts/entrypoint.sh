@@ -50,11 +50,15 @@ mkdir -p "$STATE_DIR" "$STATE_DIR/credentials" "$WORKSPACE_DIR"
 chmod 700 "$STATE_DIR"
 export OPENCLAW_STATE_DIR="$STATE_DIR"
 export OPENCLAW_WORKSPACE_DIR="$WORKSPACE_DIR"
-# ── 3b. Seed default openclaw.json if missing ────────────────────────────────
+# ── 3b. Seed default openclaw.json if missing or invalid ─────────────────────
 CONFIG_FILE="$STATE_DIR/openclaw.json"
-if [ ! -f "$CONFIG_FILE" ] && [ -f /app/openclaw.json.example ]; then
+_config_valid=0
+if [ -f "$CONFIG_FILE" ]; then
+    node -e "JSON.parse(require('fs').readFileSync('$CONFIG_FILE','utf8'))" 2>/dev/null && _config_valid=1
+fi
+if [ "$_config_valid" -eq 0 ] && [ -f /app/openclaw.json.example ]; then
     cp /app/openclaw.json.example "$CONFIG_FILE"
-    echo "[entrypoint] seeded default config from openclaw.json.example"
+    echo "[entrypoint] seeded default config from openclaw.json.example (was missing or invalid JSON)"
 fi
 
 # ── 4. Auto-fix doctor suggestions ──────────────────────────────────────────
