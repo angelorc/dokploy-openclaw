@@ -1,73 +1,21 @@
-// OpenClaw configuration reference for dokploy-openclaw.
-// Copy this file, customize it, and mount into the container:
-//   docker run -v ./openclaw.json:/data/.openclaw/openclaw.json ...
-//
-// Format: JSON5 (comments + trailing commas allowed).
-// All fields are optional -- OpenClaw uses safe defaults when omitted.
-// Env var substitution: use ${VAR_NAME} to reference environment variables.
-// Docs: https://openclaw.ai/gateway/configuration-reference
 {
-  // Gateway must be "local" for the gateway process to start properly.
-  gateway: {
-    mode: "local",
-    bind: "lan",
-    controlUi: {
-      enabled: true,
-      // Required when running behind a reverse proxy (Dokploy/Traefik).
-      // Without this, the gateway rejects Control UI connections that lack
-      // device identity (which browsers can't provide through a proxy chain).
-      allowInsecureAuth: true,
-    },
+  "gateway": {
+    "mode": "local",
+    "bind": "lan",
+    "controlUi": {
+      "enabled": true,
+      "allowInsecureAuth": true
+    }
   },
-
-  // Agent defaults
-  agents: {
-    defaults: {
-      workspace: "/data/workspace",
-      model: {
-        // primary: "anthropic/claude-sonnet-4-5",
-        // fallbacks: ["openai/gpt-5.2"],
-      },
-      // maxConcurrent: 3,
-      // compaction: { mode: "safeguard" },
-    },
+  "agents": {
+    "defaults": {
+      "workspace": "/data/workspace",
+      "model": {}
+    }
   },
-
-  // Browser tool (remote CDP sidecar)
-  // The docker-compose.yml browser sidecar exposes CDP on port 9223.
-  browser: {
-    cdpUrl: "http://browser:9223",
-    defaultProfile: "openclaw",
-    evaluateEnabled: true,
-  },
-
-  // Channels -- configure messaging integrations here.
-  // API keys/tokens can use ${VAR} substitution from env vars.
-  // channels: {
-  //   telegram: {
-  //     botToken: "${TELEGRAM_BOT_TOKEN}",
-  //     dmPolicy: "pairing",
-  //   },
-  //   discord: {
-  //     token: "${DISCORD_BOT_TOKEN}",
-  //     dmPolicy: "pairing",
-  //   },
-  //   slack: {
-  //     botToken: "${SLACK_BOT_TOKEN}",
-  //     appToken: "${SLACK_APP_TOKEN}",
-  //     dmPolicy: "pairing",
-  //   },
-  //   whatsapp: {
-  //     dmPolicy: "pairing",
-  //   },
-  // },
-
-  // Hooks (webhook automation)
-  // Configure webhook endpoints for external triggers.
-  // Docs: https://openclaw.ai/automation/hooks
-  // hooks: {
-  //   enabled: true,
-  //   token: "${HOOKS_TOKEN}",
-  //   path: "/hooks",
-  // },
+  "browser": {
+    "cdpUrl": "http://browser:9223",
+    "defaultProfile": "openclaw",
+    "evaluateEnabled": true
+  }
 }
