@@ -69,8 +69,8 @@ ENV OPENCLAW_WORKSPACE_DIR=/data/workspace
 
 EXPOSE 18789
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD curl -sf -H "Authorization: Bearer $(cat /data/.openclaw/gateway.token 2>/dev/null)" \
-    http://localhost:${OPENCLAW_GATEWAY_PORT:-18789}/healthz || exit 1
+# HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+#   CMD curl -sf -H "Authorization: Bearer $(cat /data/.openclaw/gateway.token 2>/dev/null)" \
+#     http://localhost:${OPENCLAW_GATEWAY_PORT:-18789}/healthz || exit 1
 
 ENTRYPOINT ["/app/scripts/entrypoint.sh"]
