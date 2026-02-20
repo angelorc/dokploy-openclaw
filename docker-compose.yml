@@ -5,12 +5,40 @@ services:
       - "${PORT:-18789}:${PORT:-18789}"
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - XAI_API_KEY=${XAI_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
+      - CEREBRAS_API_KEY=${CEREBRAS_API_KEY:-}
+      - VENICE_API_KEY=${VENICE_API_KEY:-}
+      - MOONSHOT_API_KEY=${MOONSHOT_API_KEY:-}
+      - KIMI_API_KEY=${KIMI_API_KEY:-}
+      - MINIMAX_API_KEY=${MINIMAX_API_KEY:-}
+      - ZAI_API_KEY=${ZAI_API_KEY:-}
+      - AI_GATEWAY_API_KEY=${AI_GATEWAY_API_KEY:-}
+      - OPENCODE_API_KEY=${OPENCODE_API_KEY:-}
+      - OPENCODE_ZEN_API_KEY=${OPENCODE_ZEN_API_KEY:-}
+      - SYNTHETIC_API_KEY=${SYNTHETIC_API_KEY:-}
+      - COPILOT_GITHUB_TOKEN=${COPILOT_GITHUB_TOKEN:-}
+      - XIAOMI_API_KEY=${XIAOMI_API_KEY:-}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_REGION=${AWS_REGION:-}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-}
+      - OPENCLAW_CONFIG_PATH=${OPENCLAW_CONFIG_PATH:-/data/.openclaw/openclaw.json}
+      - OPENCLAW_STATE_DIR=${OPENCLAW_STATE_DIR:-/data/.openclaw}
+      - OPENCLAW_WORKSPACE_DIR=${OPENCLAW_WORKSPACE_DIR:-/data/workspace}
       - BROWSER_CDP_URL=http://browser:9223
     volumes:
-      - openclaw-data:/data
-      # Mount a custom openclaw.json for advanced configuration:
-      # - ./openclaw.json:/data/.openclaw/openclaw.json
+      - openclaw-state:/data/.openclaw
+      - openclaw-workspace:/data/workspace
+      # For Dokploy AutoDeploy, mount config via Advanced -> Mounts:
+      # - ../files/openclaw.json:/data/.openclaw/openclaw.json:ro
+      # Optional: mount custom workspace content managed by Dokploy:
+      # - ../files/workspace:/data/workspace
     depends_on:
       browser:
         condition: service_started
@@ -42,5 +70,6 @@ services:
       retries: 10
 
 volumes:
-  openclaw-data:
+  openclaw-state:
+  openclaw-workspace:
   browser-data:

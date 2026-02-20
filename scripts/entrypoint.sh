@@ -3,9 +3,11 @@ set -e
 
 STATE_DIR="${OPENCLAW_STATE_DIR:-/data/.openclaw}"
 WORKSPACE_DIR="${OPENCLAW_WORKSPACE_DIR:-/data/workspace}"
+CONFIG_FILE="${OPENCLAW_CONFIG_PATH:-$STATE_DIR/openclaw.json}"
 
 echo "[entrypoint] state dir: $STATE_DIR"
 echo "[entrypoint] workspace dir: $WORKSPACE_DIR"
+echo "[entrypoint] config file: $CONFIG_FILE"
 
 # ── 1. Resolve gateway token ──────────────────────────────────────────────────
 TOKEN_FILE="$STATE_DIR/gateway.token"
@@ -50,45 +52,19 @@ mkdir -p "$STATE_DIR" "$STATE_DIR/credentials" "$WORKSPACE_DIR"
 chmod 700 "$STATE_DIR"
 export OPENCLAW_STATE_DIR="$STATE_DIR"
 export OPENCLAW_WORKSPACE_DIR="$WORKSPACE_DIR"
-# ── 3b. Seed default openclaw.json if missing or invalid ─────────────────────
-CONFIG_FILE="$STATE_DIR/openclaw.json"
-_config_valid=0
-if [ -f "$CONFIG_FILE" ]; then
-    node -e "JSON.parse(require('fs').readFileSync('$CONFIG_FILE','utf8'))" 2>/dev/null && _config_valid=1
-fi
-if [ "$_config_valid" -eq 0 ] && [ -f /app/openclaw.json.example ]; then
+export OPENCLAW_CONFIG_PATH="$CONFIG_FILE"
+
+# ── 3b. Seed default openclaw.json only when missing ─────────────────────────
+if [ ! -f "$CONFIG_FILE" ] && [ -f /app/openclaw.json.example ]; then
+    mkdir -p "$(dirname "$CONFIG_FILE")"
     cp /app/openclaw.json.example "$CONFIG_FILE"
-    echo "[entrypoint] seeded default config from openclaw.json.example (was missing or invalid JSON)"
+    echo "[entrypoint] seeded default config from openclaw.json.example (missing config)"
 fi
 
-# ── 4. Ensure critical gateway settings for reverse-proxy operation ──────────
-# We patch openclaw.json directly instead of running `openclaw doctor --fix`.
-# Doctor's security checks assume a direct client connection and flag --bind lan
-# as a security error, which is a false positive behind Traefik/Dokploy where
-# TLS is terminated at the proxy and the Docker network hop is internal.
-# - gateway.mode "local" is required for the gateway to start properly.
-# - allowInsecureAuth is required when the Control UI connects through a
-#   reverse proxy (Dokploy/Traefik) — without it the gateway rejects
-#   connections that lack device identity.
-cd /opt/openclaw/app
-if [ -f "$CONFIG_FILE" ]; then
-    node -e "
-      const fs = require('fs');
-      const cfg = JSON.parse(fs.readFileSync('$CONFIG_FILE', 'utf8'));
-      cfg.gateway = cfg.gateway || {};
-      cfg.gateway.mode = 'local';
-      cfg.gateway.controlUi = cfg.gateway.controlUi || {};
-      cfg.gateway.controlUi.enabled = true;
-      cfg.gateway.controlUi.allowInsecureAuth = true;
-      fs.writeFileSync('$CONFIG_FILE', JSON.stringify(cfg, null, 2) + '\n');
-    "
-    echo "[entrypoint] ensured gateway.mode=local and controlUi.allowInsecureAuth=true in config"
-fi
-
-# ── 5. Clean stale lock files ────────────────────────────────────────────────
+# ── 4. Clean stale lock files ────────────────────────────────────────────────
 rm -f /tmp/openclaw-gateway.lock "$STATE_DIR/gateway.lock" 2>/dev/null || true
 
-# ── 6. Start OpenClaw gateway (PID 1) ───────────────────────────────────────
+# ── 5. Start OpenClaw gateway (PID 1) ───────────────────────────────────────
 GW_PORT="${OPENCLAW_GATEWAY_PORT:-${PORT:-18789}}"
 echo "[entrypoint] starting openclaw gateway on port ${GW_PORT}..."
 exec openclaw gateway \

@@ -11,7 +11,7 @@ Docker image for deploying [OpenClaw](https://github.com/nicepkg/openclaw) on [D
 │  entrypoint.sh                                  │
 │    1. auto-generate gateway token (if not set)  │
 │    2. validate env vars (warning if no provider)│
-│    3. openclaw doctor --fix                     │
+│    3. seed default config (if missing)          │
 │    4. exec openclaw gateway                     │
 │                                                 │
 │  ┌────────────────────────────────────────┐     │
@@ -73,6 +73,15 @@ volumes:
 
 See [openclaw.json.example](openclaw.json.example) for a reference template. The config supports `${VAR}` substitution for secrets.
 
+For **Dokploy AutoDeploy**, do not mount config files from `./` repository paths. Use **Advanced -> Mounts** and reference Dokploy files:
+
+```yaml
+volumes:
+  - ../files/openclaw.json:/data/.openclaw/openclaw.json:ro
+```
+
+This avoids broken file references after git-based redeploys.
+
 ### 3. Control UI (browser-based)
 
 After first boot, open `http://localhost:18789` and use the built-in Control UI to configure OpenClaw interactively. Changes are hot-reloaded.
@@ -80,6 +89,18 @@ After first boot, open `http://localhost:18789` and use the built-in Control UI 
 ## Deploying with Traefik / Dokploy
 
 Since the gateway is exposed directly, configure auth and routing in Traefik:
+
+### Mounts and volumes (recommended)
+
+The compose file is optimized for Dokploy with:
+
+- Named volumes for persistent OpenClaw state and workspace (`openclaw-state`, `openclaw-workspace`)
+- Optional Dokploy file mounts via `../files/*` for user-managed configs
+
+Why this split:
+
+- Named volumes are better for Dokploy Volume Backups.
+- `../files/*` mounts are better for user-editable config files managed in Dokploy UI.
 
 ### Basic auth middleware
 
@@ -185,7 +206,8 @@ After deployment, verify everything is working:
    ```bash
    docker run -d -p 18789:18789 \
      -e ANTHROPIC_API_KEY=sk-ant-... \
-     -v openclaw-data:/data \
+     -v openclaw-state:/data/.openclaw \
+     -v openclaw-workspace:/data/workspace \
      openclaw:local
    ```
 
